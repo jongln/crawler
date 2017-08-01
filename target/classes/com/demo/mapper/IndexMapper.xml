@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.demo.dao.IndexMapper" >
+
+<!-- 获取抓取的本地新闻列表信息 -->
+<select id="queryCrawBendiNewsList" resultType="com.demo.entity.CommonModel">
+	SELECT id AS Id, Title AS newsTitle,Source AS newsFrom,Publish_Time AS newsDate,
+	News_Content AS newsDetail,News_Image AS newsImg FROM `t_bendi_news`
+</select>
+
+<!-- 批量插入抓取的新闻消息列表 -->
+<insert id="insertCrawBendiNewsData" useGeneratedKeys="true" parameterType="com.demo.entity.NewsCommonModel">
+	<selectKey resultType="long" keyProperty="id" order="AFTER">
+		SELECT
+		LAST_INSERT_ID()
+	</selectKey>
+	insert into t_bendi_news (Title,Source,Publish_Time,News_Content,News_Image) 
+	values
+	<foreach collection="list" item="item" index="index" separator="," >
+		(#{item.newsTitle},#{item.newsFrom},#{item.newsDate},#{item.newsDetail},#{item.newsImg})
+	</foreach>
+</insert>
+
+
+<!-- 批量插入抓取的大众点评信息到临时表中 -->
+	<insert id="addDianpingRecordList" useGeneratedKeys="true" parameterType="com.demo.entity.CommonModel">
+		<selectKey resultType="long" keyProperty="id" order="AFTER">
+			SELECT
+			LAST_INSERT_ID()
+		</selectKey>
+		insert into t_dianping_shop (Shop_ID,Business_Type,Shop_Name,Shop_Address,Shop_Phone,Lo,La,Picture_Url,Goods_Names,Goods_Prices,Goods_Detals,Add_Time) 
+		values
+		<foreach collection="list" item="item" index="index" separator="," >
+			(#{item.shopId},#{item.urlType},#{item.shopName},#{item.address},#{item.telePhone},#{item.shopGlat},
+			#{item.shopGlng},#{item.picture},#{item.goodsNames},#{item.goodsPrices},#{item.goodsDetails},DATE_FORMAT(NOW(),'%Y-%m-%d %H:%i:%S'))
+		</foreach>
+	</insert>
+	
+	<!--根据点评ids获取店铺店铺基本信息 -->
+	<select id="selectDianpingShopInfo"  resultType="com.demo.entity.CommonModel" parameterType="java.util.Map">
+		SELECT ID as id,Shop_ID as shopId Shop_Name as title,Shop_Address as address,
+		Shop_Phone as telePhone,Lo as shopGlat,La as shopGlng,Picture_Url as picture
+		 FROM t_dianping_shop WHERE 1 = 1
+        <if test="ids != '' and ids != null">  
+        	AND ID IN
+            <foreach item="item" index="index" collection="ids" open="("  
+                separator="," close=")">  
+                #{item}  
+            </foreach>  
+        </if>  
+	</select>
+	
+	<!-- 批量更新店铺商品信息根据店铺IDS -->
+	<update id="addGoodsInfoByShopIds" parameterType="com.demo.entity.CommonModel">
+		UPDATE t_dianping_shop s 
+	    SET s.`Goods_Names` = CASE ID
+	      <foreach item="item" index="index" collection="list" >  
+			        WHEN #{item.id} THEN #{item.goodsNames}
+	            </foreach>  
+	    END, 
+	    s.`Goods_Prices` = CASE ID 
+	    <foreach item="item" index="index" collection="list" >  
+			        WHEN #{item.id} THEN #{item.goodsPrices}
+	            </foreach>  
+	    END,
+	    s.`Goods_Detals`= CASE ID
+		<foreach item="item" index="index" collection="list" >  
+			        WHEN #{item.id} THEN #{item.goodsDetails}
+	            </foreach>  
+	    END
+		WHERE ID IN
+	 <foreach item="item" index="index" collection="list" open="("  
+	                separator="," close=")">  
+	                #{item.id}  
+	            </foreach>  
+	</update>
+	
+
+	<!-- 获取 基本商品信息-->
+	<select id="queryDianpingGoodsInfo"  resultType="com.demo.entity.CommonModel" parameterType="java.lang.Integer">
+		SELECT ID as id, Goods_Names AS goodsNames, Goods_Prices AS goodsPrices,Goods_Detals AS goodsDetails 
+		FROM t_dianping_shop WHERE ID= #{id,jdbcType=INTEGER}
+	</select>
+	
+	<!-- 获取插入抓取的大众点评信息 -->
+	<select id="selectDianpingRecordList"  resultType="com.demo.entity.CommonModel" parameterType="java.lang.String">
+		select Shop_ID as shopId from t_dianping_shop where Business_Type= #{businessType,jdbcType=VARCHAR}
+	</select>
+	
+	<!-- 获取店铺列表中已认领的店铺信息 -->
+	<select id="queryClaimshopInfo"  resultType="com.demo.entity.CommonModel" parameterType="java.lang.String">
+		SELECT i.`ID` AS shopId,i.`crawShopId` AS crawShopId 
+		FROM `t_netook_shop_info` i WHERE i.`State`=3 AND i.`crawShopId`= #{id,jdbcType=INTEGER}
+	</select>
+	
+	
+	
+
+</mapper>
